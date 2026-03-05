@@ -1,0 +1,54 @@
+# ShadowGlass v8.1 WARP SPEED ULTIMATE — Single Worker (all-in-one)
+name = "shadowglass-v8-warpspeed"
+main = "shadowglass_v8_warpspeed.js"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# ─── Browser Rendering (headless Chrome on edge) ──────────
+[browser]
+binding = "BROWSER"
+
+# ─── Workers AI (OCR + document analysis) ─────────────────
+[ai]
+binding = "AI"
+
+# ─── Bindings ───────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "shadowglass-scraper"
+database_id = "e16e5355-9671-4189-8a98-8484045a2d04"
+
+[[r2_buckets]]
+binding = "R2_RECORDS"
+bucket_name = "echo-prime-knowledge"
+
+[[kv_namespaces]]
+binding = "DEDUP_KV"
+id = "34f103b2505d48938b67eea26c94f798"
+
+# ─── Queue (single unified queue) ──────────────────────────
+[[queues.producers]]
+queue = "shadowglass-v8-queue"
+binding = "SCRAPE_QUEUE"
+
+[[queues.consumers]]
+queue = "shadowglass-v8-queue"
+max_batch_size = 5
+max_batch_timeout = 30
+max_retries = 5
+max_concurrency = 4
+
+# ─── Custom Domains ───────────────────────────────────────────
+[[routes]]
+pattern = "sg.echo-op.com/*"
+zone_name = "echo-op.com"
+
+# ─── Environment Variables ──────────────────────────────────
+[vars]
+ENVIRONMENT = "production"
+VERSION = "8.1.0"
+
+# ─── Cron Trigger ───────────────────────────────────────────
+[triggers]
+crons = ["0 * * * *"]

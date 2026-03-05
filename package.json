@@ -1,0 +1,16 @@
+{
+  "name": "shadowglass-v8-warpspeed",
+  "version": "8.1.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "^0.0.15"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
