@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
 ROOT=/home/forge/shadowglass-v8-warpspeed
 CURRENT="$ROOT/current"
