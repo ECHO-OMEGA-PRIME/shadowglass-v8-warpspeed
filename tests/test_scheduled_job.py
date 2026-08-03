@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import scheduled_job
@@ -110,3 +111,20 @@ def test_scheduler_probe_proves_candidate_without_enqueuing() -> None:
     result = scheduled_job.run_hourly(Connection(cursor), probe=True)
     assert result == scheduled_job.ScheduleResult(True, 1, 0, 0)
     assert not any("INSERT INTO" in query for query, _ in cursor.executions)
+
+
+def test_scheduler_role_can_read_every_table_used_by_candidate_query() -> None:
+    schema = (Path(__file__).resolve().parents[1] / "schema.sql").read_text(
+        encoding="utf-8"
+    )
+    scheduler_grants = schema[
+        schema.index("rolname = 'cf_shadowglass_v8_warpspeed_scheduler'") :
+    ]
+    grant_start = scheduler_grants.index("GRANT SELECT ON")
+    grant_select = scheduler_grants[
+        grant_start : scheduler_grants.index("TO cf_shadowglass", grant_start)
+    ]
+    for table in ("counties", "instrument_types", "scrape_jobs", "work_queue"):
+        assert f"cf_shadowglass_v8_warpspeed.{table}" in grant_select
+    revoke = scheduler_grants[scheduler_grants.index("REVOKE ALL ON") :]
+    assert "cf_shadowglass_v8_warpspeed.scrape_jobs" not in revoke

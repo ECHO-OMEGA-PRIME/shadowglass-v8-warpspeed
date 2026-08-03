@@ -275,6 +275,7 @@ BEGIN
         GRANT SELECT ON
           cf_shadowglass_v8_warpspeed.counties,
           cf_shadowglass_v8_warpspeed.instrument_types,
+          cf_shadowglass_v8_warpspeed.scrape_jobs,
           cf_shadowglass_v8_warpspeed.work_queue
           TO cf_shadowglass_v8_warpspeed_scheduler;
         GRANT INSERT ON cf_shadowglass_v8_warpspeed.work_queue
@@ -284,7 +285,6 @@ BEGIN
           TO cf_shadowglass_v8_warpspeed_scheduler;
         REVOKE ALL ON
           cf_shadowglass_v8_warpspeed.deed_records,
-          cf_shadowglass_v8_warpspeed.scrape_jobs,
           cf_shadowglass_v8_warpspeed.scrape_logs,
           cf_shadowglass_v8_warpspeed.r2_uploads,
           cf_shadowglass_v8_warpspeed.dedup_kv,
