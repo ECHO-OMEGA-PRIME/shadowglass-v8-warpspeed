@@ -596,7 +596,7 @@ run_staging_consumer_canary() {
     --property="RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6" \
     --property=MemoryMax=256M --property=TasksMax=32 \
     --property="Environment=PYTHONDONTWRITEBYTECODE=1" \
-    "$runtime_path/.venv/bin/python" "$runtime_path/queue_worker.py" --loop \
+    /usr/bin/env "$runtime_path/.venv/bin/python" "$runtime_path/queue_worker.py" --loop \
       --claim-kind acceptance_canary --worker-id "$worker_id" \
       --idle-seconds 0.2 --lease-seconds 60
   for _ in {1..30}; do
