@@ -98,7 +98,7 @@ def test_staging_consumer_uses_read_only_runtime_bind_not_home_traversal() -> No
     ]
     assert 'WorkingDirectory=$RELEASE' not in function
     assert 'BindReadOnlyPaths=$RELEASE:$runtime_path' in function
-    assert '"$runtime_path/.venv/bin/python"' in function
+    assert '/usr/bin/env "$runtime_path/.venv/bin/python"' in function
     assert '--property=ProtectHome=tmpfs' in function
     assert '--property=ProtectSystem=strict' in function
     assert '--claim-kind acceptance_canary' in function
