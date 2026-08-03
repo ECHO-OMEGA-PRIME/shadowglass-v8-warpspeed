@@ -89,6 +89,37 @@ def test_deploy_runs_real_consumer_and_scheduler_acceptance_proofs() -> None:
     assert 'write_receipt "scheduler_proof" "passed"' in script
 
 
+def test_staging_consumer_uses_read_only_runtime_bind_not_home_traversal() -> None:
+    script = (ROOT / "deploy_shadowglass_v8_warpspeed.sh").read_text(encoding="utf-8")
+    function = script[
+        script.index("run_staging_consumer_canary()") : script.index(
+            "run_staging()", script.index("run_staging_consumer_canary()")
+        )
+    ]
+    assert 'WorkingDirectory=$RELEASE' not in function
+    assert 'BindReadOnlyPaths=$RELEASE:$runtime_path' in function
+    assert '"$runtime_path/.venv/bin/python"' in function
+    assert '--property=ProtectHome=tmpfs' in function
+    assert '--property=ProtectSystem=strict' in function
+    assert '--claim-kind acceptance_canary' in function
+
+
+def test_forced_production_receipt_requires_production_injection() -> None:
+    script = (ROOT / "deploy_shadowglass_v8_warpspeed.sh").read_text(encoding="utf-8")
+    handler = script[script.index("on_error()") : script.index("write_receipt()")]
+    exercise = script[
+        script.index("exercise_production_rollback()") : script.index(
+            "run_production_consumer_and_scheduler_proofs()"
+        )
+    ]
+    assert "((PRODUCTION_FAILURE_INJECTED == 1))" in handler
+    assert 'write_receipt "forced_production_rollback"' in handler
+    assert "PRODUCTION_FAILURE_INJECTED=1" in exercise
+    assert exercise.index("PRODUCTION_FAILURE_INJECTED=1") < exercise.index(
+        'systemctl restart "$API_UNIT"'
+    )
+
+
 def test_finalizer_repeats_fresh_credential_scoped_acceptance_proofs() -> None:
     script = (ROOT / "finalize_shadowglass_v8_warpspeed.sh").read_text(encoding="utf-8")
     assert 'SG_DATABASE_URL_FILE="$CREDENTIALS/consumer-database-url"' in script

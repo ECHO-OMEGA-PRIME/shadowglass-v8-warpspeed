@@ -81,6 +81,7 @@ STAGING_DATABASE="sgv8_stage_${STAGING_SUFFIX}"
 STAGING_BUCKET="shadowglass-v8-stage-${STAGING_SUFFIX}"
 STAGING_RESOURCES=0
 STAGING_FORCED_FAILURE=0
+PRODUCTION_FAILURE_INJECTED=0
 
 cleanup_staging_resources() {
   systemctl stop "$STAGING_CONSUMER_UNIT" >/dev/null 2>&1 || true
@@ -231,6 +232,7 @@ on_error() {
     rollback_local
   fi
   if [[ "$MODE" == "force-production-failure" ]] && \
+     ((PRODUCTION_FAILURE_INJECTED == 1)) && \
      verify_production_snapshot && \
      write_receipt "forced_production_rollback" "rolled_back" "$ROLLBACK_DIR/snapshot-evidence"; then
     echo '{"ok":true,"gate":"forced_production_rollback"}'
@@ -568,9 +570,12 @@ smoke() {
 
 run_staging_consumer_canary() {
   local worker_id="staging-${STAGING_SUFFIX}"
+  local runtime_path="/opt/shadowglass-v8-staging-consumer"
   systemd-run --quiet --collect --unit="${STAGING_CONSUMER_UNIT%.service}" \
     --service-type=simple --property=User=shadowglass-v8-staging \
-    --property=Group=shadowglass-v8-staging --property="WorkingDirectory=$RELEASE" \
+    --property=Group=shadowglass-v8-staging --property="WorkingDirectory=$runtime_path" \
+    --property="BindReadOnlyPaths=$RELEASE:$runtime_path" \
+    --property="InaccessiblePaths=-$runtime_path/src -$runtime_path/evidence -$runtime_path/legacy" \
     --property="LoadCredential=database_url:$STAGING_CREDENTIALS/database-url" \
     --property="LoadCredential=relay_url:$STAGING_CREDENTIALS/relay-url" \
     --property="LoadCredential=relay_allowed_hosts:$STAGING_CREDENTIALS/relay-allowed-hosts" \
@@ -579,7 +584,19 @@ run_staging_consumer_canary() {
     --property="LoadCredential=minio_secret_key:$STAGING_CREDENTIALS/minio-secret-key" \
     --property="LoadCredential=minio_bucket:$STAGING_CREDENTIALS/minio-bucket" \
     --property=NoNewPrivileges=yes --property=PrivateTmp=yes \
-    "$RELEASE/.venv/bin/python" "$RELEASE/queue_worker.py" --loop \
+    --property=PrivateDevices=yes --property=ProtectSystem=strict \
+    --property=ProtectHome=tmpfs --property=ProtectControlGroups=yes \
+    --property=ProtectKernelTunables=yes --property=ProtectKernelModules=yes \
+    --property=ProtectKernelLogs=yes --property=ProtectClock=yes \
+    --property=ProtectHostname=yes --property=ProtectProc=invisible \
+    --property=ProcSubset=pid --property=LockPersonality=yes \
+    --property=MemoryDenyWriteExecute=yes --property=RestrictRealtime=yes \
+    --property=RestrictSUIDSGID=yes --property=RestrictNamespaces=yes \
+    --property=SystemCallArchitectures=native \
+    --property="RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6" \
+    --property=MemoryMax=256M --property=TasksMax=32 \
+    --property="Environment=PYTHONDONTWRITEBYTECODE=1" \
+    "$runtime_path/.venv/bin/python" "$runtime_path/queue_worker.py" --loop \
       --claim-kind acceptance_canary --worker-id "$worker_id" \
       --idle-seconds 0.2 --lease-seconds 60
   for _ in {1..30}; do
@@ -650,6 +667,7 @@ exercise_production_rollback() {
   done
   atomic_link "$RELEASE" "$CURRENT"
   systemctl daemon-reload
+  PRODUCTION_FAILURE_INJECTED=1
   if systemctl restart "$API_UNIT" && wait_health "http://127.0.0.1:8468"; then
     if [[ -s "$CREDENTIALS/api-read-token" && -s "$CREDENTIALS/api-write-token" && \
           -s "$CREDENTIALS/api-smoke-token" ]]; then
