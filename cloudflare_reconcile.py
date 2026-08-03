@@ -450,7 +450,7 @@ def disable(key: str) -> None:
         f"/accounts/{ACCOUNT_ID}/workers/scripts/{urllib.parse.quote(WORKER)}/subdomain"
     )
     try:
-        _cf("PUT", schedules_path, key, [])
+        _cf("PUT", schedules_path, key, {"schedules": []})
         if state["subdomain"].get("enabled"):
             _cf("DELETE", subdomain_path, key)
         _wait_for_stable_empty(key, state["queue_id"])
@@ -497,7 +497,7 @@ def restore(key: str) -> None:
     schedules_path = (
         f"/accounts/{ACCOUNT_ID}/workers/scripts/{urllib.parse.quote(WORKER)}/schedules"
     )
-    _cf("PUT", schedules_path, key, schedules)
+    _cf("PUT", schedules_path, key, {"schedules": schedules})
     saved_subdomain = dict(backup.get("subdomain") or {})
     current = _state(key)
     if saved_subdomain.get("enabled") and not current["subdomain"].get("enabled"):
@@ -543,7 +543,7 @@ def restore(key: str) -> None:
             raise RuntimeError("legacy trigger restore created multiple consumers")
         # Schedule/subdomain PUT/POST/DELETE are idempotent and may be retried;
         # consumer creation is never repeated after an ambiguous response.
-        _cf("PUT", schedules_path, key, schedules)
+        _cf("PUT", schedules_path, key, {"schedules": schedules})
         if saved_subdomain.get("enabled") and not after["subdomain"].get("enabled"):
             _cf(
                 "POST",

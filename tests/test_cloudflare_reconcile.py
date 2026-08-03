@@ -97,15 +97,16 @@ def test_disable_recovers_partial_prior_attempt_then_retries(
     monkeypatch.setattr(reconcile, "restore", lambda key: restored.append(key))
     monkeypatch.setattr(reconcile, "_save_backup", lambda _: None)
     monkeypatch.setattr(reconcile, "_wait_for_stable_empty", lambda *args: None)
-    calls: list[tuple[str, str]] = []
+    calls: list[tuple[str, str, Any]] = []
     monkeypatch.setattr(
         reconcile,
         "_cf",
-        lambda method, path, key, payload=None: calls.append((method, path)),
+        lambda method, path, key, payload=None: calls.append((method, path, payload)),
     )
     reconcile.disable("opaque")
     assert restored == ["opaque"]
-    assert [method for method, _ in calls] == ["PUT", "DELETE", "DELETE"]
+    assert [method for method, _, _ in calls] == ["PUT", "DELETE", "DELETE"]
+    assert calls[0][2] == {"schedules": []}
 
 
 def test_partial_cutover_recovery_rejects_unrelated_queue_consumer(
@@ -129,14 +130,39 @@ def test_restore_does_not_duplicate_existing_consumer(
     write_backup(backup)
     monkeypatch.setattr(reconcile, "BACKUP_PATH", backup)
     monkeypatch.setattr(reconcile, "_state", lambda _: state())
-    calls: list[str] = []
+    calls: list[tuple[str, Any]] = []
     monkeypatch.setattr(
         reconcile,
         "_cf",
-        lambda method, path, key, payload=None: calls.append(method),
+        lambda method, path, key, payload=None: calls.append((method, payload)),
     )
     reconcile.restore("opaque")
-    assert calls == ["PUT"]
+    assert calls == [("PUT", {"schedules": [{"cron": "0 * * * *"}]})]
+
+
+def test_restore_retry_keeps_schedule_update_envelope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    backup = tmp_path / "backup.json"
+    write_backup(backup)
+    monkeypatch.setattr(reconcile, "BACKUP_PATH", backup)
+    delayed = state(cron=False)
+    states = iter([state(), state(), delayed, state()])
+    monkeypatch.setattr(reconcile, "_state", lambda _: next(states))
+    monkeypatch.setattr(reconcile.time, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(reconcile.time, "sleep", lambda _: None)
+    calls: list[tuple[str, Any]] = []
+    monkeypatch.setattr(
+        reconcile,
+        "_cf",
+        lambda method, path, key, payload=None: calls.append((method, payload)),
+    )
+    reconcile.restore("opaque")
+    schedule_payloads = [payload for method, payload in calls if method == "PUT"]
+    assert schedule_payloads == [
+        {"schedules": [{"cron": "0 * * * *"}]},
+        {"schedules": [{"cron": "0 * * * *"}]},
+    ]
 
 
 def test_existing_backup_must_match_queue_identity(
