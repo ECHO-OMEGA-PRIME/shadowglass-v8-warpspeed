@@ -1,0 +1,18 @@
+{
+  "worker_name": "shadowglass-v8-warpspeed",
+  "metadata_sha256": "d5f045fe9666594cbf3a6b39c8bf7d25a7678b1d03de20666d1b43b3d5d5c2b4",
+  "bindings": [
+    {"name": "DB", "type": "d1", "referenced": true},
+    {"name": "DEDUP_KV", "type": "kv_namespace", "referenced": true},
+    {"name": "R2_RECORDS", "type": "r2_bucket", "referenced": true},
+    {"name": "SCRAPE_QUEUE", "type": "queue", "referenced": true},
+    {"name": "RELAY_URL", "type": "plain_text", "referenced": true},
+    {"name": "AZURE_API_KEY", "type": "secret_text", "referenced": false},
+    {"name": "GITHUB_TOKEN", "type": "secret_text", "referenced": false},
+    {"name": "GROQ_API_KEY", "type": "secret_text", "referenced": false},
+    {"name": "OPENROUTER_KEY", "type": "secret_text", "referenced": false},
+    {"name": "TEXASFILE_EMAIL", "type": "secret_text", "referenced": false},
+    {"name": "TEXASFILE_PASSWORD", "type": "secret_text", "referenced": false}
+  ],
+  "secret_values_present": false
+}

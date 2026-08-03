@@ -1,0 +1,12 @@
+[Unit]
+Description=Run ShadowGlass v8 WarpSpeed at minute zero of each UTC hour
+
+[Timer]
+OnCalendar=*-*-* *:00:00 UTC
+Persistent=true
+RandomizedDelaySec=0
+AccuracySec=1s
+Unit=shadowglass-v8-warpspeed-scheduled.service
+
+[Install]
+WantedBy=timers.target

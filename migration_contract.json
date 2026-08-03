@@ -1,0 +1,99 @@
+{
+  "worker_name": "shadowglass-v8-warpspeed",
+  "migration_date": "2026-08-03",
+  "provenance": {
+    "canonical_catalog_source": {
+      "bytes": 131728,
+      "sha256": "d9de56e0e50c09b709e136b7f5a8118223d414ab7c5df15d47dfb2be01bacd1d"
+    },
+    "strict_recovered_bundle": {
+      "bytes": 131543,
+      "sha256": "0582719a54ca9e61f1a3f38d459763bce9e6b4082437c8e519a2e8f93e66bd8c",
+      "source_path": "/mnt/cf_kv_r2/workers/shadowglass-v8-warpspeed/source/worker.js"
+    },
+    "historical_repository_source": {
+      "bytes": 386804,
+      "sha256": "4672128a8fd512a7b27957c4f1eeb22de46ffcf92f89bee10360108f97cb0872",
+      "source_path": "legacy/shadowglass_v8_warpspeed.js"
+    },
+    "bindings_metadata_sha256": "d5f045fe9666594cbf3a6b39c8bf7d25a7678b1d03de20666d1b43b3d5d5c2b4",
+    "settings_metadata_sha256": "ce7354f006dcad8b30eba179fc0009bc87140196bca2f42becffb11ff62a2b99",
+    "manifest_metadata_sha256": "e9e387656be5220fabcd0ef901c44d79c79c6c430405e0da2c5ff658b9124497",
+    "recovered_tree_sha256": "f9838b26acd3b7db28665485330c8c9bdd30935f0e2d281d0da0fd84f4a6da1c",
+    "recovered_tree_hash_algorithm": "sha256(length-prefixed-relative-path-and-bytes-v1)",
+    "recovered_tree_file_count": 6,
+    "relationship": "The catalog rescue, strict recovered bundle, and historical repository source are independent identities. No byte-equivalence claim is made between them. The strict recovered deployment defines the compatibility contract."
+  },
+  "handlers": {
+    "fetch": true,
+    "queue": true,
+    "scheduled": true,
+    "email": false
+  },
+  "routes": {
+    "source_count": 17,
+    "target_count": 17,
+    "tested_count": 17,
+    "coverage": 1.0,
+    "contract_path": "evidence/route_contract.json"
+  },
+  "bindings": {
+    "DB": "isolated PostgreSQL schema cf_shadowglass_v8_warpspeed",
+    "DEDUP_KV": "scoped PostgreSQL dedup_kv table; shared archive import is fail-closed without an owned-key rule",
+    "R2_RECORDS": "historical object archive was absent; new page documents use a dedicated MinIO service identity, isolated output bucket, deterministic keys, live lease fencing, and full-body digest verification",
+    "SCRAPE_QUEUE": "PostgreSQL leased queue with idempotency, retry, lease recovery, and dead-letter state",
+    "RELAY_URL": "loopback-only ShadowGlass Master plus exact-origin allowlist; never caller-controlled",
+    "removed_unused_secrets": [
+      "AZURE_API_KEY",
+      "GITHUB_TOKEN",
+      "GROQ_API_KEY",
+      "OPENROUTER_KEY",
+      "TEXASFILE_EMAIL",
+      "TEXASFILE_PASSWORD"
+    ]
+  },
+  "schedule": {
+    "cloudflare_cron": "0 * * * *",
+    "timezone": "UTC",
+    "replacement": "shadowglass-v8-warpspeed-scheduled.timer",
+    "overlap_control": "PostgreSQL advisory lock"
+  },
+  "endpoint_state": {
+    "manifest": "endpoint_overrides.json",
+    "sha256": "64adbf406dd30bf1723dc9cfbd35fc6cc0c24d143ae8b01ca323eccdbb717d00",
+    "reviewed_count": 18,
+    "active_supported_count": 7,
+    "inactive_retired_or_unsupported_count": 11,
+    "activation_gate": "all seven active endpoints pass a live provider-family verification before import"
+  },
+  "runtime": {
+    "service_dir": "/home/forge/shadowglass-v8-warpspeed",
+    "api_unit": "shadowglass-v8-warpspeed.service",
+    "consumer_unit": "shadowglass-v8-warpspeed-consumer.service",
+    "timer_unit": "shadowglass-v8-warpspeed-scheduled.timer",
+    "origin": "http://127.0.0.1:8468",
+    "staging_origin": "http://127.0.0.1:8469",
+    "hostname": null,
+    "public_edge_delta": "No custom domain is attached, but the legacy workers.dev endpoint is active. Cutover disables that endpoint only after staging, production, and rollback gates pass; no replacement public hostname is created."
+  },
+  "release_gate": {
+    "identity": "clean Git HEAD plus commit tree and deterministic git-archive source digest",
+    "staging": "release-scoped disposable PostgreSQL database, MinIO bucket, credentials, API smoke, endpoint semantics, consumer canary, and scheduler proof",
+    "production_prerequisites": [
+      "forced_staging_rollback",
+      "forced_production_rollback"
+    ],
+    "cutover_quiet_window_seconds": 900,
+    "finalization": "release-bound ordered evidence digests, fresh endpoint/API/consumer/scheduler attestation, exact D1/KV rescued-subset verification, and installed-unit byte equality",
+    "production_provisioning": "monotonic idempotent schema/role/credential provisioning followed by an exact D1/KV/endpoint compatibility recheck before promotion"
+  },
+  "intentional_security_deltas": [
+    "Only /health is unauthenticated; every dashboard, read, scrape, queue-control, and probe route requires a scoped credential.",
+    "The direct scrape route is durable-queue backed rather than bypassing retries and idempotency.",
+    "The legacy public relay is replaced by loopback-only ShadowGlass Master validation; caller-selected relay destinations are impossible.",
+    "The six declared but unreferenced secret bindings are removed instead of resurrected.",
+    "No replacement public hostname or tunnel route is created without live compatibility evidence; the discovered legacy workers.dev edge is disabled during reversible cutover.",
+    "Historical R2 object bytes were not present in the rescue archive; no HTTP route serves those objects, while new page documents are persisted in isolated MinIO.",
+    "Only seven current official county portals with verified supported adapters are active; eleven retired or unsupported portals fail closed as inactive."
+  ]
+}

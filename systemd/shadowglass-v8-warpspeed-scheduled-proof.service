@@ -1,0 +1,41 @@
+[Unit]
+Description=ShadowGlass v8 WarpSpeed scheduler-role proof
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=shadowglass-v8-scheduler
+Group=shadowglass-v8-scheduler
+WorkingDirectory=/opt/shadowglass-v8-runtime
+BindReadOnlyPaths=/home/forge/shadowglass-v8-warpspeed/current:/opt/shadowglass-v8-runtime
+InaccessiblePaths=-/opt/shadowglass-v8-runtime/src -/opt/shadowglass-v8-runtime/evidence -/opt/shadowglass-v8-runtime/legacy
+LoadCredential=database_url:/etc/echo/credentials/shadowglass-v8-warpspeed/scheduler-database-url
+ExecStart=/opt/shadowglass-v8-runtime/.venv/bin/python /opt/shadowglass-v8-runtime/scheduled_job.py --probe --require-one-candidate
+TimeoutStartSec=300
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=tmpfs
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=256M
+TasksMax=32
+LimitNOFILE=1024
