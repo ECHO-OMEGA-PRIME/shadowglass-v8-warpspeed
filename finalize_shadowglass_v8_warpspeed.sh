@@ -153,6 +153,7 @@ SQL
 sudo -u forge /usr/bin/python3 /home/forge/cf-migration-audit/audit_rollup.py >/dev/null
 sudo -u postgres psql -X -v ON_ERROR_STOP=1 -d echo \
   -v active_release="$ACTIVE_RELEASE" -v source_tree="$SOURCE_TREE" \
-  -v source_digest="$SOURCE_DIGEST" -f "$ACTIVE_RELEASE/finalize_migration.sql" >/dev/null
+  -v source_digest="$SOURCE_DIGEST" -f - \
+  <"$ACTIVE_RELEASE/finalize_migration.sql" >/dev/null
 sudo -u forge /usr/bin/python3 /home/forge/cf-migration-audit/audit_rollup.py >/dev/null
 echo '{"ok":true,"gate":"migration_finalized"}'

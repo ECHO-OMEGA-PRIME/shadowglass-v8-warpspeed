@@ -160,9 +160,20 @@ def test_provisioning_compatibility_repeats_real_provisioners() -> None:
     script = (ROOT / "deploy_shadowglass_v8_warpspeed.sh").read_text(encoding="utf-8")
     function = script[script.index("verify_provisioning_compatibility()") :]
     assert '"$RELEASE/provision_credentials.py"' in function
-    assert '-f "$RELEASE/schema.sql"' in function
+    assert '-f - <"$RELEASE/schema.sql"' in function
     assert '"$RELEASE/import_d1.py"' in function
     assert '"$RELEASE/import_kv.py"' in function
+
+
+def test_root_streams_release_sql_to_postgres_without_path_traversal() -> None:
+    deploy = (ROOT / "deploy_shadowglass_v8_warpspeed.sh").read_text(encoding="utf-8")
+    finalizer = (ROOT / "finalize_shadowglass_v8_warpspeed.sh").read_text(
+        encoding="utf-8"
+    )
+    assert '-f "$RELEASE/schema.sql"' not in deploy
+    assert deploy.count('-f - <"$RELEASE/schema.sql"') == 3
+    assert '-f "$ACTIVE_RELEASE/finalize_migration.sql"' not in finalizer
+    assert '<"$ACTIVE_RELEASE/finalize_migration.sql"' in finalizer
 
 
 def test_release_modes_are_normalized_before_source_digest() -> None:

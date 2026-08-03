@@ -451,7 +451,7 @@ prepare_staging_resources() {
     >/dev/null
   STAGING_RESOURCES=1
   sudo -u postgres psql -X -v ON_ERROR_STOP=1 -d "$STAGING_DATABASE" \
-    -f "$RELEASE/schema.sql" >/dev/null
+    -f - <"$RELEASE/schema.sql" >/dev/null
   sudo -u postgres psql -X -v ON_ERROR_STOP=1 -d "$STAGING_DATABASE" \
     -v role="$STAGING_DATABASE" -f - >/dev/null <<'SQL'
 GRANT ALL ON SCHEMA cf_shadowglass_v8_warpspeed TO :"role";
@@ -480,7 +480,8 @@ provision_data() {
   create_production_users
   "$RELEASE/.venv/bin/python" "$RELEASE/provision_credentials.py" \
     --bindings /mnt/cf_kv_r2/workers/shadowglass-v8-warpspeed/bindings.json
-  sudo -u postgres psql -X -v ON_ERROR_STOP=1 -d echo -f "$RELEASE/schema.sql" >/dev/null
+  sudo -u postgres psql -X -v ON_ERROR_STOP=1 -d echo \
+    -f - <"$RELEASE/schema.sql" >/dev/null
   consumer_credential_env "$CREDENTIALS" \
     "$RELEASE/.venv/bin/python" "$RELEASE/verify_endpoints.py" \
     >"$ROOT/endpoint-verification-${RELEASE_ID}.json"
@@ -504,7 +505,7 @@ verify_provisioning_compatibility() {
     --bindings /mnt/cf_kv_r2/workers/shadowglass-v8-warpspeed/bindings.json \
     >"$ROOT/provision-credentials-recheck-${RELEASE_ID}.json"
   sudo -u postgres psql -X -v ON_ERROR_STOP=1 -d echo \
-    -f "$RELEASE/schema.sql" >/dev/null
+    -f - <"$RELEASE/schema.sql" >/dev/null
   printf '{"database":"echo","ok":true,"schema":"cf_shadowglass_v8_warpspeed"}\n' \
     >"$ROOT/provision-schema-recheck-${RELEASE_ID}.json"
   "$RELEASE/.venv/bin/python" "$RELEASE/import_d1.py" \
