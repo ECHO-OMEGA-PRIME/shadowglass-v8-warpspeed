@@ -1,183 +1,57 @@
-# ShadowGlass v8 — WarpSpeed Ultimate
+# ShadowGlass v8 WarpSpeed
 
-> Autonomous county records browser with stealth scraping across 80+ Texas counties. 259K+ deed records, PDF pipeline, OCR, and entity extraction.
+Private-cluster replacement for the rescued `shadowglass-v8-warpspeed` Cloudflare Worker. The active runtime is a loopback-only FastAPI service on FORGE with an isolated PostgreSQL schema, a leased PostgreSQL queue consumer, and an hourly systemd timer.
 
-[![Version](https://img.shields.io/badge/version-8.1.0-blue)]()
-[![Platform](https://img.shields.io/badge/platform-Cloudflare%20Workers-orange)]()
-[![Status](https://img.shields.io/badge/status-production-green)]()
+The repository also retains the pre-migration JavaScript and Wrangler files as historical evidence. They are not the deployment source of truth and must not be deployed.
 
-## Overview
+## Runtime contract
 
-ShadowGlass v8 WarpSpeed is an all-in-one county deed record scraper supporting PublicSearch, Tyler Tech, TexasFile, and Tyler Odyssey platforms. It uses Cloudflare Browser Rendering for headless Chrome, Workers AI for OCR and entity extraction, queue-based job processing, and a full document intelligence pipeline. Includes stealth evasion with 30 user agents, Sec-CH-UA matching, circuit breakers, and exponential backoff.
+- API: `127.0.0.1:8468`; staging: `127.0.0.1:8469`.
+- Public route: none. The legacy workers.dev endpoint is disabled at cutover.
+- Authentication: `/health` is public; all other routes require the read token, and mutations require the distinct write token.
+- Service identities: separate non-login users for API, consumer, scheduler, and staging; only the consumer receives the scoped MinIO identity.
+- Database: `cf_shadowglass_v8_warpspeed` schema with distinct least-privilege API, consumer, scheduler, and migration roles.
+- Queue: leased claims, expiring-lease recovery, deterministic idempotency, bounded retry, and dead-letter state.
+- Scheduler: `shadowglass-v8-warpspeed-scheduled.timer`, exactly at minute zero each UTC hour.
+- Relay: loopback-only ShadowGlass Master, fixed paths, redirects denied, and DNS pinned per client lifetime. Validated L0 pages are retrieved directly over the same pinned public addresses when the Master has no private artifact.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│              ShadowGlass v8 WarpSpeed Ultimate                │
-│                                                                │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────┐ │
-│  │ PublicSearch│  │ Tyler Tech │  │ TexasFile  │  │Odyssey │ │
-│  │ Scraper    │  │ Scraper    │  │ Scraper    │  │Scraper │ │
-│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └───┬────┘ │
-│        │               │               │              │       │
-│  ┌─────┴───────────────┴───────────────┴──────────────┴───┐  │
-│  │              Stealth Evasion Engine                      │  │
-│  │  30 UAs · Sec-CH-UA · Circuit Breakers · Backoff        │  │
-│  └─────────────────────┬───────────────────────────────────┘  │
-│                        │                                       │
-│  ┌─────────────────────┴───────────────────────────────────┐  │
-│  │              Document Intelligence Pipeline              │  │
-│  │  PDF Download → OCR → Entity Extract → D1 Store → R2    │  │
-│  └─────────────────────┬───────────────────────────────────┘  │
-│                        │                                       │
-│  ┌─────────────────────┴───────────────────────────────────┐  │
-│  │  Queue · D1 · R2 · KV · Browser Rendering · Workers AI  │  │
-│  └─────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
-```
+The exact 17-route recovered contract is recorded in `evidence/route_contract.json` and implemented in `app.py`.
 
-## API Endpoints
+## Recovered state
 
-### Dashboard & Health
+The importers fail closed on pinned rescue hashes. Receipts contain table/key counts and deterministic digests, never record data or KV values.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Interactive HTML dashboard |
-| `GET` | `/health` | Health check with platform status |
-| `GET` | `/stats` | Scraping statistics |
-| `GET` | `/counties` | List all supported counties |
-| `GET` | `/instruments` | List instrument types |
-| `GET` | `/evasion` | Evasion engine status |
-| `GET` | `/circuits` | Circuit breaker states |
+- D1: six tables are imported into the isolated schema and re-read for count/digest equality. Redeploys verify every rescued immutable identity while permitting explicitly mutable operational columns and additional live rows.
+- Endpoints: `endpoint_overrides.json` activates only seven current, official, live portals supported by the recovered PublicSearch/Tyler adapters. Eleven retired or unsupported county portals remain explicitly inactive.
+- KV: only the two V8-owned key hashes recorded in `evidence/kv_owned_hashes.json` are accepted from the shared namespace; each rescued key/value pair is reverified independently of additional runtime keys.
+- R2: no historical object archive was present. The 9,313 D1 references remain preserved and no HTTP route serves absent bytes. New page documents are persisted and round-trip verified in the isolated `shadowglass-v8-warpspeed` MinIO bucket.
+- Queue: Cloudflare producers are disabled first, the legacy consumer remains attached through a sustained 15-minute zero-backlog/zero-oldest-message window, and only then is it removed.
 
-### Scraping Operations
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/scrape` | Submit single county scrape job |
-| `POST` | `/scrape/all` | Scrape all instrument types for a county |
-| `POST` | `/scrape/multi` | Multi-county batch scrape |
-| `POST` | `/scrape/deep` | Deep scrape with PDF download |
-| `POST` | `/scrape/direct` | Direct HTTP scrape bypass |
-| `POST` | `/scrape/platform` | Platform-specific scrape |
-| `POST` | `/scrape/permian` | Full Permian Basin scrape |
-| `POST` | `/discover` | Auto-discover county instrument types |
-
-### TexasFile Platform
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/scrape/texasfile` | TexasFile scrape job |
-| `POST` | `/scrape/texasfile/login-probe` | Test TexasFile authentication |
-| `POST` | `/scrape/texasfile/search-probe` | Test TexasFile search |
-| `POST` | `/scrape/texasfile/http` | Direct HTTP TexasFile request |
-| `POST` | `/scrape/texasfile/debug` | TexasFile debug mode |
-
-### Tyler Odyssey Platform
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/odyssey/credentials` | Set Odyssey portal credentials |
-| `GET` | `/odyssey/portals` | List Odyssey court portals |
-| `POST` | `/odyssey/search` | Search Odyssey court records |
-| `POST` | `/odyssey/case` | Get case details |
-| `GET` | `/odyssey/records` | Browse Odyssey records |
-| `GET` | `/odyssey/stats` | Odyssey scraping statistics |
-| `GET` | `/odyssey/documents` | Get case documents |
-
-### Data & Search
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/search` | Search records by county, type, grantor, grantee, date range |
-| `GET` | `/d1/counts` | Record counts per county |
-| `GET` | `/d1/total` | Total record count |
-| `GET` | `/status` | All job statuses |
-| `GET` | `/scrape/summary` | Scrape summary with watermarks |
-| `GET` | `/test/tyler?county=X` | Test Tyler connection |
-| `GET` | `/tyler/counties` | Tyler county list |
-
-### Document Pipeline
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/pipeline/stats` | Pipeline processing statistics |
-| `GET` | `/pipeline/search` | Search processed documents |
-| `POST` | `/pipeline/analyze` | Analyze a document with AI |
-| `POST` | `/pipeline/reanalyze` | Re-analyze with different parameters |
-| `GET` | `/pipeline/cloud-map` | R2 cloud storage map |
-| `GET` | `/pipeline/review` | Review pipeline output |
-| `GET` | `/pipeline/cross-refs` | Cross-reference analysis |
-| `GET` | `/stats/pdfs` | PDF download statistics |
-
-### Chain of Title
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/chain/query` | Query chain-of-title data |
-| `GET` | `/chain/party` | Search by party name |
-| `GET` | `/chain/section` | Search by section/survey |
-| `POST` | `/chain/backfill` | Backfill missing chain data |
-| `GET` | `/chain/telemetry` | Chain processing telemetry |
-| `GET` | `/chain/counties` | Counties with chain data |
-| `GET` | `/chain/watermarks` | Scrape watermark positions |
-| `POST` | `/chain/init` | Initialize chain schema |
-
-### WarpSpeed (Bulk Operations)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/warpspeed` | Single WarpSpeed CSV import |
-| `POST` | `/warpspeed/all` | Full WarpSpeed bulk import |
-| `POST` | `/warpspeed/fetch-pdfs` | Batch PDF download |
-| `POST` | `/warpspeed/history` | Import history |
-
-### Jobs & Admin
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/jobs/fix-stale` | Fix stale/stuck jobs |
-| `POST` | `/jobs/reset` | Reset failed jobs |
-| `GET` | `/debug/tyler-pdf` | Debug Tyler PDF downloads |
-| `GET` | `/llm/status` | LLM provider status |
-| `POST` | `/llm/test` | Test LLM connectivity |
-
-## Cloudflare Bindings
-
-| Type | Binding | Resource |
-|------|---------|----------|
-| D1 | `DB` | `shadowglass-scraper` — records, jobs, pipeline data |
-| R2 | `R2_RECORDS` | `echo-prime-knowledge` — PDFs, images, documents |
-| KV | `DEDUP_KV` | Deduplication, session state, credentials |
-| Queue | `SCRAPE_QUEUE` | `shadowglass-v8-queue` — async job processing |
-| Browser | `BROWSER` | Cloudflare Browser Rendering (headless Chrome) |
-| AI | `AI` | Workers AI (OCR, document analysis) |
-
-## Custom Domain
-
-- `sg.echo-op.com` (route on `echo-op.com` zone)
-
-## Cron Triggers
-
-- `0 * * * *` — Hourly watermark-based re-scraping
-
-## Tech Stack
-
-- **Runtime**: Cloudflare Workers
-- **Language**: JavaScript
-- **Database**: Cloudflare D1 (SQLite)
-- **Storage**: Cloudflare R2
-- **Queue**: Cloudflare Queues
-- **Browser**: Cloudflare Browser Rendering (Puppeteer)
-- **AI**: Workers AI (Llama 3.2 11B Vision)
-- **Platforms**: PublicSearch, Tyler Tech, TexasFile, Tyler Odyssey
-- **Source Lines**: 6,587
-
-## Deploy
+## Local verification
 
 ```bash
-npx wrangler deploy
+python -m pytest -q tests
+python -m ruff check .
+python -m py_compile app.py core.py storage.py relay.py scraper.py object_store.py queue_worker.py consumer_canary.py scheduled_job.py import_d1.py import_kv.py apply_endpoint_overrides.py verify_endpoints.py service.py smoke_live.py
 ```
 
-## License
+## Deployment gates
 
-Proprietary — Echo Prime Technologies. All rights reserved.
+The deploy script runs as root on FORGE and accepts an explicit source directory and release ID through `SG_SOURCE_DIR` and `SG_RELEASE_ID`.
+
+```bash
+sudo --preserve-env=SG_SOURCE_DIR,SG_RELEASE_ID bash deploy_shadowglass_v8_warpspeed.sh --force-staging-failure
+sudo --preserve-env=SG_SOURCE_DIR,SG_RELEASE_ID bash deploy_shadowglass_v8_warpspeed.sh --force-production-failure
+sudo --preserve-env=SG_SOURCE_DIR,SG_RELEASE_ID bash deploy_shadowglass_v8_warpspeed.sh --deploy
+sudo bash /home/forge/shadowglass-v8-warpspeed/current/finalize_shadowglass_v8_warpspeed.sh
+```
+
+Deployment accepts only a clean Git `HEAD`, extracts the candidate with `git archive`, and binds every receipt to the commit tree and deterministic source digest. Staging uses a disposable release-named PostgreSQL database, MinIO bucket, and credentials, all removed on exit. The forced staging rollback and forced production rollback receipts for those exact Git bytes are prerequisites for normal production provisioning.
+
+Promotion then verifies the semantic provider contract for all seven active counties, exact rescued subsets, live API behavior, a targeted one-attempt queue-consumer/MinIO canary, and a read-only scheduler-role probe that proves exactly one eligible candidate without enqueuing it. Dedicated proof units exercise the exact production consumer and scheduler identities without starting the general consumer before cutover. A red production path restores the prior `current` target, exact unit files, and prior enabled/active states. Database/credential provisioning is deliberately monotonic and idempotent rather than destructively rolled back; an exact post-provision D1/KV/endpoint compatibility pass proves the prior and candidate layouts can coexist before promotion. Cloudflare Queue, cron, and workers.dev are changed only after production is green; restoration must converge or the deploy persists a root-only recovery marker and fails closed.
+
+## Security boundaries
+
+Runtime units receive only their required systemd credentials. The MinIO administrator identity is used only during root-run provisioning; the consumer can list/read/write the dedicated output bucket, delete only its acceptance-canary prefix, and read rescued ShadowGlass Master artifacts without modifying them. The API/scheduler receive no object-store credential. The root-run cutover tool obtains a Vault-held bearer token scoped to the single legacy Cloudflare account and only Queue/Worker read-write permissions; neither that token nor the sovereign key is available to the API, queue consumer, or timer. Its root-only recovery backup is accepted only when the queue, script, worker-consumer type, hourly cron, workers.dev state, and empty custom-domain set exactly match the recovered baseline. Operational logs and migration receipts exclude deed rows, KV names/values, credentials, source text, and relay destinations; authenticated search and record responses intentionally return their requested deed data.
+
+Proprietary — ECHO OMEGA PRIME.

@@ -1,0 +1,28 @@
+{
+  "worker_name": "shadowglass-v8-warpspeed",
+  "contract_source_sha256": "0582719a54ca9e61f1a3f38d459763bce9e6b4082437c8e519a2e8f93e66bd8c",
+  "routes": [
+    {"method": "GET", "path": "/", "replacement": "authenticated HTML dashboard"},
+    {"method": "GET", "path": "/dashboard", "replacement": "authenticated HTML dashboard"},
+    {"method": "GET", "path": "/health", "replacement": "public dependency health"},
+    {"method": "GET", "path": "/stats", "replacement": "authenticated aggregate counts"},
+    {"method": "GET", "path": "/counties", "replacement": "authenticated county catalog"},
+    {"method": "GET", "path": "/search", "replacement": "authenticated parameterized deed search"},
+    {"method": "GET", "path": "/record/{id}", "replacement": "authenticated record lookup"},
+    {"method": "GET", "path": "/status", "replacement": "authenticated job status list"},
+    {"method": "GET", "path": "/status/{county}", "replacement": "authenticated county job status"},
+    {"method": "GET", "path": "/test/tyler", "replacement": "authenticated fixed-origin relay probe"},
+    {"method": "POST", "path": "/scrape", "replacement": "durable single scrape enqueue"},
+    {"method": "POST", "path": "/scrape/all", "replacement": "durable county instrument fan-out"},
+    {"method": "POST", "path": "/scrape/multi", "replacement": "bounded multi-county fan-out"},
+    {"method": "POST", "path": "/discover", "replacement": "durable discovery enqueue"},
+    {"method": "POST", "path": "/pause/{id}", "replacement": "authenticated atomic pause"},
+    {"method": "POST", "path": "/resume/{id}", "replacement": "authenticated atomic resume"},
+    {"method": "POST", "path": "/scrape/direct", "replacement": "high-priority durable enqueue; deliberate no-bypass security delta"}
+  ],
+  "source_count": 17,
+  "target_count": 17,
+  "tested_count": 17,
+  "coverage": 1.0,
+  "omissions": []
+}
