@@ -8,7 +8,7 @@ The repository also retains the pre-migration JavaScript and Wrangler files as h
 
 - API: `127.0.0.1:8468`; staging: `127.0.0.1:8469`.
 - Public route: none. The legacy workers.dev endpoint is disabled at cutover.
-- Cloudflare quarantine: the grandfathered hourly Cron Trigger cannot be edited because Cloudflare returns account-quota error 10072 even for deletion. Cutover therefore uploads an attested content-only wrapper whose `fetch` returns 410, whose `scheduled` handler is inert, and whose `queue` delegates to the unchanged legacy module until the drain completes.
+- Cloudflare quarantine: the grandfathered hourly Cron Trigger cannot be edited because Cloudflare returns account-quota error 10072 even for deletion. Cutover therefore uploads an attested content-only wrapper whose `fetch` returns 410, whose `scheduled` handler is inert, and whose `queue` delegates to the unchanged legacy module until the drain completes. The settings proof hashes every configuration, binding, and user annotation while excluding only Cloudflare's server-owned `workers/triggered_by` version annotation, which changes on code-only uploads. V2 recovery files are `cloudflare-worker-content-backup-v2.{multipart,json}`; incompatible V1 metadata is deliberately rejected and retained only as historical evidence.
 - Authentication: `/health` is public; all other routes require the read token, and mutations require the distinct write token.
 - Service identities: separate non-login users for API, consumer, scheduler, and staging; only the consumer receives the scoped MinIO identity.
 - Database: `cf_shadowglass_v8_warpspeed` schema with distinct least-privilege API, consumer, scheduler, and migration roles.

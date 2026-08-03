@@ -259,6 +259,45 @@ def test_cloudflare_http_error_reports_safe_api_diagnostics(
         reconcile._cf("PUT", "/redacted", "opaque", [])
 
 
+def test_settings_digest_ignores_only_server_owned_version_annotations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    baseline = {
+        "annotations": {
+            "workers/triggered_by": "deployment",
+            "workers/tag": "migration-baseline",
+        },
+        "compatibility_date": "2026-03-01",
+        "bindings": [{"name": "DB", "type": "d1", "database_id": "db-one"}],
+    }
+    changed_annotation = {
+        **baseline,
+        "annotations": {
+            "workers/triggered_by": "upload",
+            "workers/tag": "migration-baseline",
+        },
+    }
+    changed_user_annotation = {
+        **changed_annotation,
+        "annotations": {
+            "workers/triggered_by": "upload",
+            "workers/tag": "unexpected-tag-drift",
+        },
+    }
+    changed_binding = {
+        **changed_annotation,
+        "bindings": [{"name": "DB", "type": "d1", "database_id": "db-two"}],
+    }
+    values = iter(
+        (baseline, changed_annotation, changed_user_annotation, changed_binding)
+    )
+    monkeypatch.setattr(reconcile, "_cf", lambda *args, **kwargs: next(values))
+    original = reconcile._settings_sha256("opaque")
+    assert reconcile._settings_sha256("opaque") == original
+    assert reconcile._settings_sha256("opaque") != original
+    assert reconcile._settings_sha256("opaque") != original
+
+
 def legacy_content() -> tuple[bytes, str]:
     worker = (Path(reconcile.__file__).parent / "src" / "worker.js").read_bytes() + b"\n"
     assert reconcile.hashlib.sha256(worker).hexdigest() == reconcile.LEGACY_MODULE_SHA256
@@ -282,6 +321,7 @@ def write_content_backup(
                 "main_module": "worker.js",
                 "active_version_id": "68214043-218d-46d2-823c-8e944ab89643",
                 "settings_sha256": "a" * 64,
+                "settings_digest_version": 2,
             }
         ),
         encoding="utf-8",

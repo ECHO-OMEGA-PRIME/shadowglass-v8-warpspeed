@@ -47,13 +47,13 @@ RECOVERY_PATH = Path(
 CONTENT_BACKUP_PATH = Path(
     os.getenv(
         "SG_V8_CF_CONTENT_BACKUP",
-        "/home/forge/shadowglass-v8-warpspeed/cloudflare-worker-content-backup.multipart",
+        "/home/forge/shadowglass-v8-warpspeed/cloudflare-worker-content-backup-v2.multipart",
     )
 )
 CONTENT_BACKUP_META_PATH = Path(
     os.getenv(
         "SG_V8_CF_CONTENT_BACKUP_META",
-        "/home/forge/shadowglass-v8-warpspeed/cloudflare-worker-content-backup.json",
+        "/home/forge/shadowglass-v8-warpspeed/cloudflare-worker-content-backup-v2.json",
     )
 )
 QUARANTINE_SOURCE_PATH = Path(__file__).with_name("legacy_quarantine.js")
@@ -406,7 +406,19 @@ def _settings_sha256(key: str) -> str:
         f"/accounts/{ACCOUNT_ID}/workers/scripts/{urllib.parse.quote(WORKER)}/settings",
         key,
     ) or {}
-    encoded = json.dumps(settings, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    # `workers/triggered_by` is a server-owned version annotation and changes
+    # on every content-only upload. It is not Worker configuration. Hash every
+    # actual setting/binding while deliberately excluding that volatile field.
+    normalized = dict(settings)
+    annotations = dict(normalized.get("annotations") or {})
+    annotations.pop("workers/triggered_by", None)
+    if annotations:
+        normalized["annotations"] = annotations
+    else:
+        normalized.pop("annotations", None)
+    encoded = json.dumps(normalized, separators=(",", ":"), sort_keys=True).encode(
+        "utf-8"
+    )
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -428,6 +440,7 @@ def _load_content_backup(
         or not re.fullmatch(
             r"[0-9a-f-]{36}", str(metadata.get("active_version_id") or "")
         )
+        or metadata.get("settings_digest_version") != 2
     ):
         raise RuntimeError("legacy Worker content recovery metadata mismatch")
     if hashlib.sha256(raw).hexdigest() != str(metadata.get("sha256") or ""):
@@ -469,6 +482,7 @@ def _save_content_backup(key: str) -> None:
             "main_module": entry_point,
             "active_version_id": content["active_version_id"],
             "settings_sha256": _settings_sha256(key),
+            "settings_digest_version": 2,
         },
         separators=(",", ":"),
         sort_keys=True,
