@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 
 SERVICE="shadowglass-v8-warpspeed"
 ROOT="/home/forge/shadowglass-v8-warpspeed"

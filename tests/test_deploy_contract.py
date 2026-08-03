@@ -182,3 +182,13 @@ def test_release_modes_are_normalized_before_source_digest() -> None:
     normalize = script.index('chmod 0755 "$temporary"/*.py "$temporary"/*.sh', archive)
     digest = script.index('source_digest="$(' , normalize)
     assert archive < normalize < digest
+
+
+def test_root_release_tools_never_write_python_cache_into_attested_tree() -> None:
+    for name in (
+        "deploy_shadowglass_v8_warpspeed.sh",
+        "finalize_shadowglass_v8_warpspeed.sh",
+    ):
+        script = (ROOT / name).read_text(encoding="utf-8")
+        assert script.startswith("#!/usr/bin/env bash\nset -Eeuo pipefail\n")
+        assert "export PYTHONDONTWRITEBYTECODE=1" in script.splitlines()[:5]
