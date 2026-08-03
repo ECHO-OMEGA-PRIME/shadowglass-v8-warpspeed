@@ -158,6 +158,7 @@ def test_cloudflare_status_summary_is_value_redacted() -> None:
             "schedules": [{"cron": "0 * * * *"}],
             "domains": [],
             "subdomain": {"enabled": True},
+            "content": {"legacy": True, "quarantined": False},
         }
     )
     serialized = json.dumps(summary)
@@ -185,6 +186,19 @@ def test_cutover_uses_scoped_bearer_token_and_is_redeploy_safe() -> None:
     assert "X-Auth-Key" not in reconcile_source
     assert 'value.get("action") == "already_disabled"' in deploy
     assert "CF_MUTATED=0" in deploy
+    assert '_cf("PUT", schedules_path' not in reconcile_source
+    assert "_quarantine_content(key)" in reconcile_source
+
+
+def test_finalizer_accepts_only_hash_proven_inert_grandfathered_cron() -> None:
+    finalizer = (ROOT / "finalize_shadowglass_v8_warpspeed.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'state.get("crons") != ["0 * * * *"]' in finalizer
+    assert 'state.get("worker_quarantined") is not True' in finalizer
+    assert 'state.get("worker_content_legacy") is not False' in finalizer
+    assert 'state.get("worker_settings_match_backup") is not True' in finalizer
+    assert 'state.get("content_backup_restoreable") is not True' in finalizer
 
 
 def test_provisioning_compatibility_repeats_real_provisioners() -> None:

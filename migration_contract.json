@@ -56,7 +56,8 @@
     "cloudflare_cron": "0 * * * *",
     "timezone": "UTC",
     "replacement": "shadowglass-v8-warpspeed-scheduled.timer",
-    "overlap_control": "PostgreSQL advisory lock"
+    "overlap_control": "PostgreSQL advisory lock",
+    "legacy_trigger_reconciliation": "Cloudflare error 10072 blocks any schedule-list update on this grandfathered free account. The preserved hourly trigger invokes an attested no-op scheduled handler; the exact original multipart Worker content is backed up for rollback."
   },
   "endpoint_state": {
     "manifest": "endpoint_overrides.json",
@@ -93,6 +94,7 @@
     "The legacy public relay is replaced by loopback-only ShadowGlass Master validation; caller-selected relay destinations are impossible.",
     "The six declared but unreferenced secret bindings are removed instead of resurrected.",
     "No replacement public hostname or tunnel route is created without live compatibility evidence; the discovered legacy workers.dev edge is disabled during reversible cutover.",
+    "The grandfathered hourly Cloudflare trigger is preserved because the account rejects even trigger deletion at its legacy quota; an exact-hash quarantine module makes scheduled/fetch inert while delegating queue work until the drain completes.",
     "Historical R2 object bytes were not present in the rescue archive; no HTTP route serves those objects, while new page documents are persisted in isolated MinIO.",
     "Only seven current official county portals with verified supported adapters are active; eleven retired or unsupported portals fail closed as inactive."
   ]

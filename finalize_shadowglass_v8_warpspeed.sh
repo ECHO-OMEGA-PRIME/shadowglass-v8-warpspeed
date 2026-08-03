@@ -66,19 +66,30 @@ if (
 if (
     state.get("consumer_count") != 0
     or state.get("matching_worker_consumers") != 0
-    or state.get("crons")
 ):
-    raise SystemExit("legacy Cloudflare triggers remain active")
+    raise SystemExit("legacy Cloudflare queue consumer remains active")
+if state.get("crons") != ["0 * * * *"]:
+    raise SystemExit("grandfathered legacy cron identity changed")
+if (
+    state.get("worker_quarantined") is not True
+    or state.get("worker_content_legacy") is not False
+):
+    raise SystemExit("legacy Cloudflare Worker content is not proven quarantined")
+if state.get("worker_settings_match_backup") is not True:
+    raise SystemExit("live Worker settings differ from the recovery backup")
 if state.get("workers_dev_enabled"):
     raise SystemExit("legacy workers.dev edge remains active")
 if state.get("custom_domain_count") != 0:
     raise SystemExit("legacy custom-domain edge remains active")
 if state.get("backup_restoreable") is not True:
     raise SystemExit("legacy trigger backup is not strictly restoreable")
+if state.get("content_backup_restoreable") is not True:
+    raise SystemExit("legacy Worker content backup is not strictly restoreable")
 PY
 
 ATTESTATION_DIR="$(mktemp -d "$ROOT/.fresh-attestation.XXXXXX")"
 trap 'rm -rf -- "$ATTESTATION_DIR"' EXIT
+printf '%s\n' "$STATUS_JSON" >"$ATTESTATION_DIR/cloudflare-status.json"
 "$ACTIVE_RELEASE/.venv/bin/python" "$ACTIVE_RELEASE/smoke_live.py" \
   --base http://127.0.0.1:8468 \
   --read-token-file "$CREDENTIALS/api-read-token" \

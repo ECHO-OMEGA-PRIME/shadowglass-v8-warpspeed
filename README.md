@@ -8,6 +8,7 @@ The repository also retains the pre-migration JavaScript and Wrangler files as h
 
 - API: `127.0.0.1:8468`; staging: `127.0.0.1:8469`.
 - Public route: none. The legacy workers.dev endpoint is disabled at cutover.
+- Cloudflare quarantine: the grandfathered hourly Cron Trigger cannot be edited because Cloudflare returns account-quota error 10072 even for deletion. Cutover therefore uploads an attested content-only wrapper whose `fetch` returns 410, whose `scheduled` handler is inert, and whose `queue` delegates to the unchanged legacy module until the drain completes.
 - Authentication: `/health` is public; all other routes require the read token, and mutations require the distinct write token.
 - Service identities: separate non-login users for API, consumer, scheduler, and staging; only the consumer receives the scoped MinIO identity.
 - Database: `cf_shadowglass_v8_warpspeed` schema with distinct least-privilege API, consumer, scheduler, and migration roles.
@@ -25,7 +26,7 @@ The importers fail closed on pinned rescue hashes. Receipts contain table/key co
 - Endpoints: `endpoint_overrides.json` activates only seven current, official, live portals supported by the recovered PublicSearch/Tyler adapters. Eleven retired or unsupported county portals remain explicitly inactive.
 - KV: only the two V8-owned key hashes recorded in `evidence/kv_owned_hashes.json` are accepted from the shared namespace; each rescued key/value pair is reverified independently of additional runtime keys.
 - R2: no historical object archive was present. The 9,313 D1 references remain preserved and no HTTP route serves absent bytes. New page documents are persisted and round-trip verified in the isolated `shadowglass-v8-warpspeed` MinIO bucket.
-- Queue: Cloudflare producers are disabled first, the legacy consumer remains attached through a sustained 15-minute zero-backlog/zero-oldest-message window, and only then is it removed.
+- Queue: Cloudflare fetch and scheduled producers are quarantined first, the legacy consumer remains attached through a sustained 15-minute zero-backlog/zero-oldest-message window, and only then is it removed. The preserved cron is accepted only while content-part hashes prove its handler is inert.
 
 ## Local verification
 
@@ -48,7 +49,7 @@ sudo bash /home/forge/shadowglass-v8-warpspeed/current/finalize_shadowglass_v8_w
 
 Deployment accepts only a clean Git `HEAD`, extracts the candidate with `git archive`, and binds every receipt to the commit tree and deterministic source digest. Staging uses a disposable release-named PostgreSQL database, MinIO bucket, and credentials, all removed on exit. The forced staging rollback and forced production rollback receipts for those exact Git bytes are prerequisites for normal production provisioning.
 
-Promotion then verifies the semantic provider contract for all seven active counties, exact rescued subsets, live API behavior, a targeted one-attempt queue-consumer/MinIO canary, and a read-only scheduler-role probe that proves exactly one eligible candidate without enqueuing it. Dedicated proof units exercise the exact production consumer and scheduler identities without starting the general consumer before cutover. A red production path restores the prior `current` target, exact unit files, and prior enabled/active states. Database/credential provisioning is deliberately monotonic and idempotent rather than destructively rolled back; an exact post-provision D1/KV/endpoint compatibility pass proves the prior and candidate layouts can coexist before promotion. Cloudflare Queue, cron, and workers.dev are changed only after production is green; restoration must converge or the deploy persists a root-only recovery marker and fails closed.
+Promotion then verifies the semantic provider contract for all seven active counties, exact rescued subsets, live API behavior, a targeted one-attempt queue-consumer/MinIO canary, and a read-only scheduler-role probe that proves exactly one eligible candidate without enqueuing it. Dedicated proof units exercise the exact production consumer and scheduler identities without starting the general consumer before cutover. A red production path restores the prior `current` target, exact unit files, and prior enabled/active states. Database/credential provisioning is deliberately monotonic and idempotent rather than destructively rolled back; an exact post-provision D1/KV/endpoint compatibility pass proves the prior and candidate layouts can coexist before promotion. Cloudflare content quarantine, Queue consumer, and workers.dev are changed only after production is green; the grandfathered cron identity is preserved but its handler is cryptographically proven inert. Restoration must converge from the exact root-only multipart backup or the deploy persists a root-only recovery marker and fails closed.
 
 ## Security boundaries
 
